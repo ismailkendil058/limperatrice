@@ -8,11 +8,11 @@ var tsrStartManifest = () => ({ routes: {
 			"/admin",
 			"/login"
 		],
-		preloads: ["/assets/index-BbZk0puP.js", "/assets/preload-helper-CyUzDLkC.js"],
+		preloads: ["/assets/index-TxjtHY8L.js", "/assets/preload-helper-CyUzDLkC.js"],
 		scripts: [{ attrs: {
 			type: "module",
 			async: !0,
-			src: "/assets/index-BbZk0puP.js"
+			src: "/assets/index-TxjtHY8L.js"
 		} }]
 	},
 	"/_app": {
@@ -28,21 +28,21 @@ var tsrStartManifest = () => ({ routes: {
 			"/_app/stock"
 		],
 		preloads: [
-			"/assets/_app-Bpd0RDVz.js",
+			"/assets/_app-D2UPOwfq.js",
 			"/assets/store-CjvBWQBb.js",
 			"/assets/createLucideIcon-1uwwvWsY.js",
 			"/assets/book-marked-C952-0jM.js",
 			"/assets/calendar-days-i-4BaMoV.js",
 			"/assets/file-text-a_86xoyu.js",
 			"/assets/package-DzMRfxUz.js",
-			"/assets/dist-won-ll-W.js"
+			"/assets/dist-DsMdsN_J.js"
 		]
 	},
 	"/admin": {
 		filePath: "C:/Users/admin/Desktop/limperatrice/src/routes/admin.tsx",
 		children: void 0,
 		preloads: [
-			"/assets/admin-C8Sgq8Po.js",
+			"/assets/admin-Z5VHFdyB.js",
 			"/assets/store-CjvBWQBb.js",
 			"/assets/createLucideIcon-1uwwvWsY.js",
 			"/assets/eye-DA6n4xMf.js"
@@ -52,7 +52,7 @@ var tsrStartManifest = () => ({ routes: {
 		filePath: "C:/Users/admin/Desktop/limperatrice/src/routes/login.tsx",
 		children: void 0,
 		preloads: [
-			"/assets/login-BHWrNuKw.js",
+			"/assets/login-BvkPoWls.js",
 			"/assets/store-CjvBWQBb.js",
 			"/assets/createLucideIcon-1uwwvWsY.js"
 		]
@@ -66,7 +66,7 @@ var tsrStartManifest = () => ({ routes: {
 		filePath: "C:/Users/admin/Desktop/limperatrice/src/routes/_app.contract.tsx",
 		children: void 0,
 		preloads: [
-			"/assets/_app.contract-C_L_o09S.js",
+			"/assets/_app.contract-fKrUMja8.js",
 			"/assets/eye-DA6n4xMf.js",
 			"/assets/printer-oPTsZrek.js",
 			"/assets/search-Dwc_d_ll.js",
@@ -94,7 +94,7 @@ var tsrStartManifest = () => ({ routes: {
 		filePath: "C:/Users/admin/Desktop/limperatrice/src/routes/_app.locations.tsx",
 		children: void 0,
 		preloads: [
-			"/assets/_app.locations-BDQxF5tR.js",
+			"/assets/_app.locations-BwSmP0yF.js",
 			"/assets/plus-H8Cdbsj5.js",
 			"/assets/printer-oPTsZrek.js",
 			"/assets/search-Dwc_d_ll.js",
@@ -117,7 +117,7 @@ var tsrStartManifest = () => ({ routes: {
 		filePath: "C:/Users/admin/Desktop/limperatrice/src/routes/_app.reservation.tsx",
 		children: void 0,
 		preloads: [
-			"/assets/_app.reservation-CEkAgM6B.js",
+			"/assets/_app.reservation-BVaixzDc.js",
 			"/assets/plus-H8Cdbsj5.js",
 			"/assets/printer-oPTsZrek.js",
 			"/assets/search-Dwc_d_ll.js",

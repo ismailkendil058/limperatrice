@@ -3,6 +3,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist/client",
   "framework": "vite",
+  "nodeVersion": "22.x",
   "functions": {
     "api/index.ts": {
       "includeFiles": "dist/server/**",

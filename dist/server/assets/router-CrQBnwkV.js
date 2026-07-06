@@ -126,36 +126,42 @@ var Route$12 = createRootRouteWithContext()({
 			},
 			{
 				rel: "icon",
-				href: "/BR-01.png",
+				href: "/favicon.png",
+				type: "image/png",
+				sizes: "64x64"
+			},
+			{
+				rel: "icon",
+				href: "/icon-96x96.png",
 				type: "image/png",
 				sizes: "96x96"
 			},
 			{
 				rel: "icon",
-				href: "/BR-01.png",
+				href: "/icon-128x128.png",
 				type: "image/png",
 				sizes: "128x128"
 			},
 			{
 				rel: "icon",
-				href: "/BR-01.png",
+				href: "/icon-192x192.png",
 				type: "image/png",
 				sizes: "192x192"
 			},
 			{
 				rel: "icon",
-				href: "/BR-01.png",
+				href: "/icon-512x512.png",
 				type: "image/png",
 				sizes: "512x512"
 			},
 			{
 				rel: "shortcut icon",
-				href: "/BR-01.png",
+				href: "/favicon.png",
 				type: "image/png"
 			},
 			{
 				rel: "apple-touch-icon",
-				href: "/BR-01.png",
+				href: "/icon-180x180.png",
 				sizes: "180x180"
 			},
 			{
