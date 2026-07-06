@@ -1,8 +1,8 @@
 {
   "installCommand": "npm install",
-  "buildCommand": "NITRO_PRESET=vercel npm run build",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist/client",
-  "framework": null,
+  "framework": "vite",
   "functions": {
     "api/index.ts": {
       "includeFiles": "dist/server/**",
