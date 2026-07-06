@@ -1,0 +1,439 @@
+// src/lib/store.ts
+import { create } from "zustand";
+import api from "./api";
+import { supabase } from "./supabaseClient";
+import { parseMachta } from "./format";
+
+/** Types imported from the API layer */
+import type { Article, Client, Employee, Location, Note, Reservation, SavedContract, Versement, Category, ArticleStatus } from "./types";
+export type { Article, Client, Employee, Location, Note, Reservation, SavedContract, Versement, Category, ArticleStatus };
+
+/** Calculate remaining amount for a location */
+export const locReste = (loc: Location): number => {
+  const total = Number(loc.total ?? 0);
+  const paid = (loc.versements ?? []).reduce((sum, v) => sum + Number(v.amount ?? 0), 0);
+  return total - paid;
+};
+
+/** Calculate total versements amount for a location */
+export const locVerse = (loc: Location): number => {
+  return (loc.versements ?? []).reduce((sum, v) => sum + Number(v.amount ?? 0), 0);
+};
+
+/** Store state – holds only UI‑related data and the fetched domain entities */
+export interface StoreState {
+  auth: { role: "admin" | "employee" | null; employeeName: string | null };
+  articles: Article[];
+  clients: Client[];
+  locations: Location[];
+  employees: Employee[];
+  reservations: Reservation[];
+  savedContracts: SavedContract[];
+  notes: Note[];
+  pendingNewLocationClientId: string | null;
+  pendingOpenLocationId: string | null;
+  // UI actions
+  setPendingNewLocation: (id: string | null) => void;
+  setPendingOpenLocation: (id: string | null) => void;
+  // Auth actions
+  loginEmployee: (id: string, pin: string) => Promise<boolean>;
+  loginAdmin: (password: string) => Promise<boolean>;
+  loginEmployeeDemo: () => void;
+  loginAdminDemo: () => void;
+  logout: () => void;
+  // Data loading
+  loadAllData: () => Promise<void>;
+  loadEmployees: () => Promise<void>;
+  // Granular reloads (used by Realtime subscriptions)
+  reloadArticles: () => Promise<void>;
+  reloadClients: () => Promise<void>;
+  reloadEmployees: () => Promise<void>;
+  reloadLocations: () => Promise<void>;
+  reloadReservations: () => Promise<void>;
+  reloadSavedContracts: () => Promise<void>;
+  reloadNotes: () => Promise<void>;
+  // CRUD actions – async proxy to API
+  addArticle: (a: Omit<Article, "id">) => Promise<void>;
+  updateArticle: (id: string, a: Partial<Article>) => Promise<void>;
+  deleteArticle: (id: string) => Promise<void>;
+  addClient: (c: Omit<Client, "id" | "createdAt">) => Promise<Client>;
+  updateClient: (id: string, c: Partial<Client>) => Promise<void>;
+  deleteClient: (id: string) => Promise<void>;
+  addLocation: (l: Omit<Location, "id" | "status" | "versements" | "createdAt"> & { initialPayment?: number; versements?: Versement[] }) => Promise<void>;
+  updateLocation: (id: string, updates: Partial<Location>) => Promise<void>;
+  deleteLocation: (id: string) => Promise<void>;
+  addVersement: (locId: string, v: Omit<Versement, "id">) => Promise<void>;
+  deleteVersement: (locId: string, verseId: string) => Promise<void>;
+  markReturned: (locId: string, returnDate: string) => Promise<void>;
+  markCautionReturned: (locId: string) => Promise<void>;
+  updateLocationNotes: (locId: string, notes: string) => Promise<void>;
+  updateLocationArticlePrices: (locId: string, articlePrices: Record<string, number>) => Promise<void>;
+  addEmployee: (name: string, pin: string) => Promise<void>;
+  updateEmployeePin: (id: string, pin: string) => Promise<void>;
+  toggleEmployee: (id: string) => Promise<void>;
+  // Saved contracts
+  saveContract: (locId: string) => Promise<void>;
+  deleteSavedContract: (id: string) => Promise<void>;
+  loadSavedContracts: () => Promise<void>;
+  // Notes
+  loadNotes: () => Promise<void>;
+  addNote: (n: Omit<Note, "id" | "createdAt">) => Promise<void>;
+  deleteNote: (id: string) => Promise<void>;
+  // Reservations
+  addReservation: (r: Omit<Reservation, "id" | "createdAt">) => Promise<void>;
+  deleteReservation: (id: string) => Promise<void>;
+  validateReservation: (id: string, initialPayment: number) => Promise<void>;
+  addReservationVersement: (resId: string, v: Omit<Versement, "id">) => Promise<void>;
+  deleteReservationVersement: (resId: string, verseId: string) => Promise<void>;
+}
+
+/** Simple UID generator for temporary client‑side IDs */
+function uid(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+export const useStore = create<StoreState>((set, get) => ({
+  // ---------- UI state ----------
+  auth: { role: null, employeeName: null },
+  articles: [],
+  clients: [],
+  locations: [],
+  employees: [],
+  reservations: [],
+  savedContracts: [],
+  notes: [],
+  pendingNewLocationClientId: null,
+  pendingOpenLocationId: null,
+
+  setPendingNewLocation: (id) => set({ pendingNewLocationClientId: id }),
+  setPendingOpenLocation: (id) => set({ pendingOpenLocationId: id }),
+
+  // ---------- Auth ----------
+  loginEmployee: async (id, pin) => {
+    const emp = get().employees.find((e) => e.id === id && e.active);
+    if (emp && emp.pin === pin) {
+      set({ auth: { role: "employee", employeeName: emp.name } });
+      return true;
+    }
+    return false;
+  },
+  loginAdmin: async (password) => {
+    // Fetch the admin password from the Supabase "admin" table
+    const { data, error } = await supabase
+      .from("admin")
+      .select("password")
+      .limit(1)
+      .single();
+    if (error || !data) {
+      console.error("Failed to fetch admin password", error);
+      return false;
+    }
+    if (password === data.password) {
+      set({ auth: { role: "admin", employeeName: "Administratrice" } });
+      return true;
+    }
+    return false;
+  },
+  loginEmployeeDemo: () => {
+    const activeEmps = get().employees.filter((e) => e.active);
+    const empName = activeEmps[0]?.name ?? "Employé Démo";
+    set({ auth: { role: "employee", employeeName: empName } });
+  },
+  loginAdminDemo: () => {
+    set({ auth: { role: "admin", employeeName: "Administratrice" } });
+  },
+  logout: () => set({ auth: { role: null, employeeName: null } }),
+
+  // ---------- Data loading ----------
+  loadAllData: async () => {
+    const data = await api.loadAllData();
+    set({
+      articles: data.articles,
+      clients: data.clients,
+      employees: data.employees,
+      locations: data.locations,
+      reservations: data.reservations,
+      savedContracts: data.savedContracts,
+    });
+  },
+  loadEmployees: async () => {
+    const employees = await api.loadEmployees();
+    set({ employees });
+  },
+
+  // ---------- Granular reloads (for Realtime subscriptions) ----------
+  reloadArticles: async () => {
+    const articles = await api.getArticles();
+    set({ articles });
+  },
+  reloadClients: async () => {
+    const clients = await api.getClients();
+    set({ clients });
+  },
+  reloadEmployees: async () => {
+    const employees = await api.getEmployees();
+    set({ employees });
+  },
+  reloadLocations: async () => {
+    const locations = await api.getLocations();
+    set({ locations });
+  },
+  reloadReservations: async () => {
+    const reservations = await api.getReservations();
+    set({ reservations });
+  },
+  reloadSavedContracts: async () => {
+    const savedContracts = await api.getSavedContracts();
+    set({ savedContracts });
+  },
+  reloadNotes: async () => {
+    const notes = await api.getNotes();
+    set({ notes });
+  },
+
+  // ---------- CRUD ----------
+  addArticle: async (a) => {
+    const article = await api.createArticle(a);
+    set((s) => ({ articles: [...s.articles, article] }));
+  },
+  updateArticle: async (id, a) => {
+    const updated = await api.updateArticle(id, a);
+    set((s) => ({ articles: s.articles.map((x) => (x.id === id ? updated : x)) }));
+  },
+  deleteArticle: async (id) => {
+    await api.deleteArticle(id);
+    set((s) => ({ articles: s.articles.filter((x) => x.id !== id) }));
+  },
+
+  addClient: async (c) => {
+    const client = await api.createClient(c);
+    set((s) => ({ clients: [...s.clients, client] }));
+    return client;
+  },
+  updateClient: async (id, c) => {
+    const updated = await api.updateClient(id, c);
+    set((s) => ({ clients: s.clients.map((x) => (x.id === id ? updated : x)) }));
+  },
+  deleteClient: async (id) => {
+    await api.deleteClient(id);
+    set((s) => ({ clients: s.clients.filter((x) => x.id !== id) }));
+  },
+
+  addLocation: async (l) => {
+    const loc = await api.createLocation(l);
+    // Mark selected articles as "Loué"
+    for (const aid of (l.articleIds ?? [])) {
+      const article = get().articles.find((a) => a.id === aid);
+      if (article && article.status === "Disponible") {
+        const updated = await api.updateArticle(aid, { status: "Loué" });
+        set((s) => ({ articles: s.articles.map((a) => (a.id === aid ? updated : a)) }));
+      }
+    }
+    set((s) => ({ locations: [...s.locations, loc] }));
+  },
+  updateLocation: async (id, updates) => {
+    const updated = await api.updateLocation(id, updates);
+    set((s) => ({ locations: s.locations.map((l) => (l.id === id ? updated : l)) }));
+  },
+  deleteLocation: async (id) => {
+    const loc = get().locations.find((l) => l.id === id);
+    // Restore articles back to "Disponible" before deleting
+    if (loc && loc.status !== "Rendue") {
+      for (const aid of (loc.articleIds ?? [])) {
+        const article = get().articles.find((a) => a.id === aid);
+        if (article && article.status === "Loué") {
+          const artUpdated = await api.updateArticle(aid, { status: "Disponible" });
+          set((s) => ({ articles: s.articles.map((a) => (a.id === aid ? artUpdated : a)) }));
+        }
+      }
+    }
+    // Delete saved contracts referencing this location first
+    const contracts = get().savedContracts.filter((c) => c.locationId === id);
+    for (const c of contracts) {
+      await api.deleteSavedContract(c.id);
+    }
+    await api.deleteLocation(id);
+    set((s) => ({
+      locations: s.locations.filter((l) => l.id !== id),
+      savedContracts: s.savedContracts.filter((c) => c.locationId !== id),
+    }));
+  },
+  addVersement: async (locId, v) => {
+    const verse = await api.addVersement(locId, v);
+    set((s) => ({
+      locations: s.locations.map((l) => (l.id === locId ? { ...l, versements: [...l.versements, verse] } : l)),
+    }));
+  },
+  deleteVersement: async (locId, verseId) => {
+    await api.deleteVersement(locId, verseId);
+    set((s) => ({
+      locations: s.locations.map((l) => (l.id === locId ? { ...l, versements: l.versements.filter((v) => v.id !== verseId) } : l)),
+    }));
+  },
+  markReturned: async (locId, returnDate) => {
+    const loc = get().locations.find((l) => l.id === locId);
+    if (!loc) return;
+    const updated = { ...loc, actualReturnDate: returnDate, status: "Rendue" as const };
+    await api.updateLocation(locId, updated);
+    // Restore articles back to "Disponible"
+    for (const aid of (loc.articleIds ?? [])) {
+      const article = get().articles.find((a) => a.id === aid);
+      if (article && article.status === "Loué") {
+        const artUpdated = await api.updateArticle(aid, { status: "Disponible" });
+        set((s) => ({ articles: s.articles.map((a) => (a.id === aid ? artUpdated : a)) }));
+      }
+    }
+    set((s) => ({ locations: s.locations.map((l) => (l.id === locId ? updated : l)) }));
+  },
+  markCautionReturned: async (locId) => {
+    const loc = get().locations.find((l) => l.id === locId);
+    if (!loc) return;
+    const updated = { ...loc, cautionReturned: true };
+    await api.updateLocation(locId, updated);
+    set((s) => ({ locations: s.locations.map((l) => (l.id === locId ? updated : l)) }));
+  },
+  updateLocationNotes: async (locId, notes) => {
+    const loc = get().locations.find((l) => l.id === locId);
+    if (!loc) return;
+    const updated = { ...loc, notes };
+    await api.updateLocation(locId, updated);
+    set((s) => ({ locations: s.locations.map((l) => (l.id === locId ? updated : l)) }));
+  },
+  updateLocationArticlePrices: async (locId, articlePrices) => {
+    const loc = get().locations.find((l) => l.id === locId);
+    if (!loc) return;
+    const updated = { ...loc, articlePrices };
+    await api.updateLocation(locId, updated);
+    set((s) => ({ locations: s.locations.map((l) => (l.id === locId ? updated : l)) }));
+  },
+
+  // ---------- Employees ----------
+  addEmployee: async (name, pin) => {
+    const emp = await api.createEmployee({ name, pin, active: true } as any);
+    set((s) => ({ employees: [...s.employees, emp] }));
+  },
+  updateEmployeePin: async (id, pin) => {
+    const emp = await api.updateEmployee(id, { pin });
+    set((s) => ({ employees: s.employees.map((e) => (e.id === id ? emp : e)) }));
+  },
+  toggleEmployee: async (id) => {
+    const emp = get().employees.find((e) => e.id === id);
+    if (!emp) return;
+    const updated = await api.updateEmployee(id, { active: !emp.active });
+    set((s) => ({ employees: s.employees.map((e) => (e.id === id ? updated : e)) }));
+  },
+
+  // ---------- Saved contracts ----------
+  saveContract: async (locId) => {
+    const loc = get().locations.find((l) => l.id === locId);
+    if (!loc) return;
+    const client = get().clients.find((c) => c.id === loc.clientId);
+    const articles = get().articles.filter((a) => (loc.articleIds ?? []).includes(a.id));
+    const verse = locVerse(loc);
+    const reste = locReste(loc);
+
+    const machta = parseMachta(loc.notes);
+    const contractArticles = articles.map((a) => ({ name: a.name, price: loc.articlePrices?.[a.id] ?? a.price }));
+    if (machta.active) {
+      contractArticles.push({ name: "Service Machta", price: machta.price });
+    }
+
+    const payload = {
+      locationId: loc.id,
+      clientId: loc.clientId,
+      clientName: client?.name ?? "Inconnu",
+      clientPhone: client?.phone ?? "",
+      pickupDate: loc.pickupDate,
+      returnDate: loc.returnDate,
+      total: loc.total,
+      caution: loc.caution ?? 0,
+      verse,
+      reste,
+      notes: machta.cleanNotes,
+      articles: contractArticles,
+    };
+
+    const saved = await api.saveContract(payload as any);
+    set((s) => ({ savedContracts: [...s.savedContracts, saved] }));
+  },
+  deleteSavedContract: async (id) => {
+    await api.deleteSavedContract(id);
+    set((s) => ({ savedContracts: s.savedContracts.filter((c) => c.id !== id) }));
+  },
+  loadSavedContracts: async () => {
+    const contracts = await api.getSavedContracts();
+    set({ savedContracts: contracts });
+  },
+
+  // ---------- Notes ----------
+  loadNotes: async () => {
+    const notes = await api.getNotes();
+    set({ notes });
+  },
+  addNote: async (n) => {
+    const note = await api.createNote(n);
+    set((s) => ({ notes: [note, ...s.notes] }));
+  },
+  deleteNote: async (id) => {
+    await api.deleteNote(id);
+    set((s) => ({ notes: s.notes.filter((n) => n.id !== id) }));
+  },
+
+  // ---------- Reservations ----------
+  addReservation: async (r) => {
+    const reservation = await api.createReservation(r);
+    set((s) => ({ reservations: [...s.reservations, reservation] }));
+  },
+  deleteReservation: async (id) => {
+    await api.deleteReservation(id);
+    set((s) => ({ reservations: s.reservations.filter((r) => r.id !== id) }));
+  },
+  addReservationVersement: async (resId, v) => {
+    const verse = await api.addReservationVersement(resId, v);
+    set((s) => ({
+      reservations: s.reservations.map((r) =>
+        r.id === resId ? { ...r, versements: [...(r.versements ?? []), verse] } : r
+      ),
+    }));
+  },
+  deleteReservationVersement: async (resId, verseId) => {
+    await api.deleteReservationVersement(resId, verseId);
+    set((s) => ({
+      reservations: s.reservations.map((r) =>
+        r.id === resId ? { ...r, versements: (r.versements ?? []).filter((v) => v.id !== verseId) } : r
+      ),
+    }));
+  },
+  validateReservation: async (id, initialPayment) => {
+    const reservation = get().reservations.find((r) => r.id === id);
+    if (!reservation) return;
+    const payload = {
+      clientId: reservation.clientId,
+      articleIds: reservation.articleIds,
+      articlePrices: reservation.articlePrices,
+      pickupDate: reservation.pickupDate,
+      returnDate: reservation.returnDate,
+      occasion: reservation.occasion,
+      total: reservation.total,
+      caution: reservation.caution ?? 0,
+      initialPayment,
+      versements: [],
+      notes: reservation.notes,
+    };
+    const loc = await api.createLocation(payload);
+    // Delete the reservation from the server (including junction/versement rows)
+    await api.deleteReservationFull(id);
+    // Mark selected articles as "Loué"
+    for (const aid of (reservation.articleIds ?? [])) {
+      const article = get().articles.find((a) => a.id === aid);
+      if (article && article.status === "Disponible") {
+        const updated = await api.updateArticle(aid, { status: "Loué" });
+        set((s) => ({ articles: s.articles.map((a) => (a.id === aid ? updated : a)) }));
+      }
+    }
+    set((s) => ({
+      locations: [...s.locations, loc],
+      reservations: s.reservations.filter((r) => r.id !== id),
+    }));
+  },
+}));
