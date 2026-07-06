@@ -286,8 +286,13 @@ function ArticleDrawerInner({ open, onClose, article, onSave }: {
     photo: PURPLES[Math.floor(Math.random() * PURPLES.length)],
   });
 
-  async function compressImage(file: File): Promise<Blob> {
-    return new Promise((resolve) => {
+  const [compressing, setCompressing] = useState(false);
+  const [compressedImage, setCompressedImage] = useState<{ blob: Blob; fileName: string; sizeKb: number } | null>(null);
+  const [compressionStatus, setCompressionStatus] = useState<string>("");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(article?.photo && article.photo.startsWith("http") ? article.photo : null);
+
+  async function compressImage(file: File): Promise<{ blob: Blob; sizeKb: number }> {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = (event) => {
@@ -295,15 +300,68 @@ function ArticleDrawerInner({ open, onClose, article, onSave }: {
         img.src = event.target?.result as string;
         img.onload = () => {
           const canvas = document.createElement("canvas");
-          const MAX_WIDTH = 800;
-          const scaleSize = MAX_WIDTH / img.width;
-          canvas.width = MAX_WIDTH;
-          canvas.height = img.height * scaleSize;
+          const MAX_DIM = 1200;
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > MAX_DIM || height > MAX_DIM) {
+            if (width > height) {
+              height = Math.round((height * MAX_DIM) / width);
+              width = MAX_DIM;
+            } else {
+              width = Math.round((width * MAX_DIM) / height);
+              height = MAX_DIM;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
           const ctx = canvas.getContext("2d");
-          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-          canvas.toBlob((blob) => resolve(blob!), "image/jpeg", 0.7);
+          if (!ctx) {
+            reject(new Error("Could not get 2d context"));
+            return;
+          }
+          
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          let quality = 0.8;
+          const getBlob = (q: number): Promise<Blob> => {
+            return new Promise((res) => {
+              canvas.toBlob((blob) => res(blob!), "image/jpeg", q);
+            });
+          };
+          
+          (async () => {
+            let blob = await getBlob(quality);
+            
+            // Adjust quality to target 100KB - 200KB range if it exceeds 200KB
+            if (blob.size > 200 * 1024) {
+              quality = 0.6;
+              blob = await getBlob(quality);
+            }
+            if (blob.size > 200 * 1024) {
+              quality = 0.4;
+              blob = await getBlob(quality);
+            }
+            // If still larger than 200KB, scale down resolution
+            if (blob.size > 200 * 1024) {
+              const scale = 0.7;
+              canvas.width = Math.round(width * scale);
+              canvas.height = Math.round(height * scale);
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              blob = await getBlob(0.5);
+            }
+            
+            resolve({
+              blob,
+              sizeKb: Math.round(blob.size / 1024),
+            });
+          })().catch(reject);
         };
+        img.onerror = () => reject(new Error("Failed to load image"));
       };
+      reader.onerror = () => reject(new Error("Failed to read file"));
     });
   }
 
@@ -317,16 +375,20 @@ function ArticleDrawerInner({ open, onClose, article, onSave }: {
           <button onClick={onClose} className="btn-danger">Annuler</button>
           <button
             onClick={async () => {
-              if ((form as any).__newImageFile) {
-                const file: File = (form as any).__newImageFile;
-                const compressed = await compressImage(file);
-                const filePath = `article-${Date.now()}-${file.name.replace(/[^a-z0-9.]/gi, '_')}`;
+              if (compressing) {
+                alert("Veuillez patienter pendant l'optimisation de l'image.");
+                return;
+              }
+
+              if (compressedImage) {
+                const { blob, fileName } = compressedImage;
+                const filePath = `article-${Date.now()}-${fileName.replace(/[^a-z0-9.]/gi, '_')}`;
                 const { error: uploadError } = await supabase.storage
                   .from('product-images')
-                  .upload(filePath, compressed);
+                  .upload(filePath, blob);
                 if (uploadError) {
                   console.error('Image upload failed', uploadError);
-                  alert('Failed to upload image');
+                  alert('Échec du téléchargement de l\'image');
                   return;
                 }
                 const { data } = supabase.storage.from('product-images').getPublicUrl(filePath);
@@ -338,9 +400,10 @@ function ArticleDrawerInner({ open, onClose, article, onSave }: {
               cleanForm.caution = 0;
               onSave(cleanForm);
             }}
+            disabled={compressing}
             className="btn-primary"
           >
-            Enregistrer
+            {compressing ? "Optimisation..." : "Enregistrer"}
           </button>
         </>
       }
@@ -356,17 +419,57 @@ function ArticleDrawerInner({ open, onClose, article, onSave }: {
             </select>
           </Field>
           <Field label="Image">
-            <input
-              type="file"
-              accept="image/*"
-              className="input-field"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  setForm((prev: any) => ({ ...prev, __newImageFile: file }));
-                }
-              }}
-            />
+            <div className="space-y-2">
+              <input
+                type="file"
+                accept="image/*"
+                className="input-field w-full text-xs"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setCompressing(true);
+                    setCompressionStatus("Optimisation de l'image...");
+                    try {
+                      const localPreview = URL.createObjectURL(file);
+                      setPreviewUrl(localPreview);
+
+                      const result = await compressImage(file);
+                      setCompressedImage({
+                        blob: result.blob,
+                        fileName: file.name,
+                        sizeKb: result.sizeKb,
+                      });
+                      setCompressionStatus(`Image prête : ${result.sizeKb} Ko`);
+                    } catch (err) {
+                      console.error("Compression failed", err);
+                      setCompressionStatus("Erreur d'optimisation. Fichier d'origine utilisé.");
+                      setCompressedImage({
+                        blob: file,
+                        fileName: file.name,
+                        sizeKb: Math.round(file.size / 1024),
+                      });
+                    } finally {
+                      setCompressing(false);
+                    }
+                  }
+                }}
+              />
+              {previewUrl && (
+                <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-[#E5E5E5] bg-gray-50 flex items-center justify-center shadow-sm">
+                  <img src={previewUrl} alt="Aperçu" className="w-full h-full object-cover" />
+                  {compressing && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-[10px] font-medium text-center p-1 leading-tight">
+                      Compression...
+                    </div>
+                  )}
+                </div>
+              )}
+              {compressionStatus && (
+                <div className={`text-xs ${compressionStatus.includes("Erreur") ? "text-red-500" : "text-emerald-600"} font-medium`}>
+                  {compressionStatus}
+                </div>
+              )}
+            </div>
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
