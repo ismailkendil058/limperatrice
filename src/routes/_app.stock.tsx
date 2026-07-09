@@ -99,8 +99,9 @@ function StockPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((a) => (
             <div key={a.id} className="card-surface" style={{ padding: 16 }} onClick={() => {
-                const res = reservations.find(r => (r.articleIds ?? []).includes(a.id));
-                setSelectedReservation(res || null);
+                const resList = reservations.filter(r => (r.articleIds ?? []).includes(a.id));
+                setSelectedReservation(resList.length > 0 ? resList[0] : null);
+                (window as any).__allReservationsForArticle = resList;
                 setInfoOpen(true);
               }}>
               <div
@@ -227,13 +228,20 @@ function StockPage() {
         </div>
       </Modal>
 
-      <Modal open={infoOpen} onClose={() => setInfoOpen(false)} title={selectedReservation ? "Réservation" : "Disponibilité"}>
-        {selectedReservation ? (
-          <div className="space-y-4">
-            <div><strong>Client:</strong> {clients.find(c => c.id === selectedReservation.clientId)?.name ?? "Inconnu"}</div>
-            <div><strong>Période:</strong> {formatDate(selectedReservation.pickupDate)} → {formatDate(selectedReservation.returnDate)}</div>
-          </div>
-        ) : (
+      <Modal open={infoOpen} onClose={() => setInfoOpen(false)} title={selectedReservation ? "Réservations" : "Disponibilité"}>
+        {selectedReservation ? (() => {
+          const allRes = (window as any).__allReservationsForArticle || [selectedReservation];
+          return (
+            <div className="space-y-4">
+              {allRes.map((res: Reservation) => (
+                <div key={res.id} className="p-3 rounded-lg border" style={{ borderColor: "#E5E5E5" }}>
+                  <div><strong>Client:</strong> {clients.find(c => c.id === res.clientId)?.name ?? "Inconnu"}</div>
+                  <div><strong>Période:</strong> {formatDate(res.pickupDate)} → {formatDate(res.returnDate)}</div>
+                </div>
+              ))}
+            </div>
+          );
+        })() : (
           <div>Ce produit n'est pas réservé.</div>
         )}
       </Modal>

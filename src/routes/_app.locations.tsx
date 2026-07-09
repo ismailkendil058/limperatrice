@@ -795,7 +795,7 @@ function PrintContract({ location }: { location: Location }) {
   const machta = parseMachta(location.notes);
 
   return (
-    <div style={{ fontFamily: "Montserrat, sans-serif", color: "#1A1A1A", fontSize: 13, lineHeight: 1.4, height: "100%", position: "relative", boxSizing: "border-box" }}>
+    <div style={{ fontFamily: "Montserrat, sans-serif", color: "#1A1A1A", fontSize: 13, lineHeight: 1.4, height: "100%", position: "relative", boxSizing: "border-box", background: "white" }}>
       <div style={{ textAlign: "center", paddingBottom: 12, borderBottom: "2px solid #BA93DF" }}>
         <div style={{ fontFamily: "Cormorant Garamond, serif", fontStyle: "italic", fontSize: 26, color: "#BA93DF", letterSpacing: "0.15em" }}>
           L'impératrice
@@ -874,7 +874,7 @@ function PrintContract({ location }: { location: Location }) {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
             <span>Les versements effectués ne sont pas remboursables. · Pièce d'identité obligatoire.</span>
             <span style={{ color: "rgba(0,0,0,0.3)" }}>|</span>
-            <span dir="rtl">المبالغ المدفوعة غير قابلة للاسترداد. · بطاقة الهوية إجبارية.</span>
+            <span dir="rtl" style={{ fontWeight: 700 }}>العربون لا يرد · بطاقة الهوية إجبارية.</span>
           </div>
         </div>
       </div>

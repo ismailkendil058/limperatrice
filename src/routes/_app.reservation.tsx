@@ -659,7 +659,7 @@ function PrintReservationContract({ reservation }: { reservation: Reservation })
   const totalVerse = Number(reservation.versement ?? 0) + totalAdditionalVersements;
 
   return (
-    <div style={{ fontFamily: "Montserrat, sans-serif", color: "#1A1A1A", fontSize: 13, lineHeight: 1.4, height: "100%", position: "relative", boxSizing: "border-box" }}>
+    <div style={{ fontFamily: "Montserrat, sans-serif", color: "#1A1A1A", fontSize: 13, lineHeight: 1.4, height: "100%", position: "relative", boxSizing: "border-box", background: "white" }}>
       <div style={{ textAlign: "center", paddingBottom: 12, borderBottom: "2px solid #BA93DF" }}>
         <div style={{ fontFamily: "Cormorant Garamond, serif", fontStyle: "italic", fontSize: 26, color: "#BA93DF", letterSpacing: "0.15em" }}>
           L'impératrice
@@ -733,7 +733,7 @@ function PrintReservationContract({ reservation }: { reservation: Reservation })
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
           <span>Les versements effectués ne sont pas remboursables. · Pièce d'identité obligatoire.</span>
           <span style={{ color: "rgba(26,26,26,0.3)" }}>|</span>
-          <span dir="rtl">المبالغ المدفوعة غير قابلة للاسترداد. · بطاقة الهوية إجبارية.</span>
+          <span dir="rtl" style={{ fontWeight: 700 }}>العربون لا يرد · بطاقة الهوية إجبارية.</span>
         </div>
         <div style={{ marginTop: 8, borderTop: "1px solid #E5E5E5", paddingTop: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
