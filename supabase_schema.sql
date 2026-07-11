@@ -11,6 +11,7 @@ CREATE TYPE location_status_enum AS ENUM ('En cours', 'À venir', 'Rendue', 'En 
 CREATE TYPE occasion_enum AS ENUM ('Mariage', 'Fiançailles', 'Cérémonie', 'Anniversaire', 'Autre');
 CREATE TYPE versement_type_enum AS ENUM ('Versement', 'Solde', 'Caution');
 CREATE TYPE role_enum AS ENUM ('admin', 'employee');
+CREATE TYPE reservation_status_enum AS ENUM ('En attente', 'Validée', 'Annulée');
 
 -- Helper function for timestamps
 CREATE OR REPLACE FUNCTION set_timestamp()
@@ -111,6 +112,8 @@ CREATE TABLE reservations (
   caution NUMERIC NOT NULL,
   versement NUMERIC NOT NULL DEFAULT 0,
   notes TEXT,
+  status reservation_status_enum NOT NULL DEFAULT 'En attente',
+  cancelled_at DATE,
   created_at DATE NOT NULL,
   created_at_ts TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -178,6 +181,7 @@ CREATE INDEX idx_locations_client_id ON locations(client_id);
 CREATE INDEX idx_locations_status ON locations(status);
 CREATE INDEX idx_versements_location_id ON versements(location_id);
 CREATE INDEX idx_reservations_client_id ON reservations(client_id);
+CREATE INDEX idx_reservations_status ON reservations(status);
 CREATE INDEX idx_location_articles_article_id ON location_articles(article_id);
 CREATE INDEX idx_reservation_articles_article_id ON reservation_articles(article_id);
 CREATE INDEX idx_reservation_versements_reservation_id ON reservation_versements(reservation_id);

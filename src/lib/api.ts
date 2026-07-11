@@ -530,6 +530,14 @@ export async function deleteReservation(id: string): Promise<void> {
   if (error) handleError(error);
 }
 
+export async function cancelReservation(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("reservations")
+    .update({ status: "Annulée", cancelled_at: new Date().toISOString().slice(0, 10) })
+    .eq("id", id);
+  if (error) handleError(error);
+}
+
 // ── SAVED CONTRACTS ────────────────────────────────────────────────
 
 export async function getSavedContracts(): Promise<SavedContract[]> {
@@ -697,6 +705,7 @@ export default {
   getReservations,
   createReservation,
   deleteReservation,
+  cancelReservation,
   deleteReservationFull,
   getSavedContracts,
   saveContract,

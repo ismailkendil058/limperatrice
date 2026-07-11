@@ -23,6 +23,7 @@ function ReservationPage() {
   const articles = useStore((s) => s.articles);
 
   const [reservationSearch, setReservationSearch] = useState("");
+  const [showCancelled, setShowCancelled] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [openRes, setOpenRes] = useState<Reservation | null>(null);
 
@@ -35,25 +36,45 @@ function ReservationPage() {
         </button>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "rgba(26,26,26,0.4)" }} />
-        <input
-          className="input-field w-full pl-9"
-          placeholder="Rechercher par client ou article..."
-          value={reservationSearch}
-          onChange={(e) => setReservationSearch(e.target.value)}
-        />
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "rgba(26,26,26,0.4)" }} />
+          <input
+            className="input-field w-full pl-9"
+            placeholder="Rechercher par client ou article..."
+            value={reservationSearch}
+            onChange={(e) => setReservationSearch(e.target.value)}
+          />
+        </div>
+        <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
+          <input
+            type="checkbox"
+            checked={showCancelled}
+            onChange={(e) => setShowCancelled(e.target.checked)}
+            className="w-4 h-4 rounded"
+            style={{ accentColor: "#C0392B" }}
+          />
+          <span className="text-sm" style={{ color: "rgba(26,26,26,0.7)" }}>Annulées</span>
+        </label>
       </div>
 
       {(() => {
         const q = reservationSearch.trim().toLowerCase();
-        const visible = q ? reservations.filter((r) => {
-          const client = clients.find((c) => c.id === r.clientId);
-          const machta = parseMachta(r.notes);
-          const arts = articles.filter((a) => (r.articleIds ?? []).includes(a.id)).map((a) => a.name).join(", ");
-          const hay = `${client?.name ?? ""} ${arts} ${machta.active ? "Service Machta" : ""}`.toLowerCase();
-          return hay.includes(q);
-        }) : reservations;
+        let visible = reservations;
+        
+        if (!showCancelled) {
+          visible = visible.filter((r) => r.status !== "Annulée");
+        }
+        
+        if (q) {
+          visible = visible.filter((r) => {
+            const client = clients.find((c) => c.id === r.clientId);
+            const machta = parseMachta(r.notes);
+            const arts = articles.filter((a) => (r.articleIds ?? []).includes(a.id)).map((a) => a.name).join(", ");
+            const hay = `${client?.name ?? ""} ${arts} ${machta.active ? "Service Machta" : ""}`.toLowerCase();
+            return hay.includes(q);
+          });
+        }
 
         if (visible.length === 0) {
           return (
@@ -85,19 +106,32 @@ function ReservationPage() {
                   const client = clients.find((c) => c.id === r.clientId);
                   const machta = parseMachta(r.notes);
                   const arts = articles.filter((a) => (r.articleIds ?? []).includes(a.id)).map((a) => a.name).join(", ") || (machta.active ? "Service Machta" : "Aucun");
+                  const isCancelled = r.status === "Annulée";
                   return (
                     <tr
                       key={r.id}
                       onClick={() => setOpenRes(r)}
                       className="cursor-pointer hover:bg-[rgba(186, 147, 223,0.04)]"
-                      style={{ borderBottom: "1px solid #E5E5E5", borderLeft: "3px solid #D4820A" }}
+                      style={{ 
+                        borderBottom: "1px solid #E5E5E5", 
+                        borderLeft: isCancelled ? "3px solid #C0392B" : "3px solid #D4820A",
+                        background: isCancelled ? "rgba(192, 57, 43, 0.03)" : "transparent"
+                      }}
                     >
-                      <Td>{client?.name}</Td>
-                      <Td>{arts}</Td>
-                      <Td>{formatDate(r.pickupDate)}</Td>
-                      <Td>{formatDate(r.returnDate)}</Td>
-                      <Td>{formatDA(r.total)}</Td>
-                      <Td><Badge status="En attente" /></Td>
+                      <Td style={isCancelled ? { color: "rgba(26,26,26,0.5)" } : {}}>{client?.name}</Td>
+                      <Td style={isCancelled ? { color: "rgba(26,26,26,0.5)" } : {}}>{arts}</Td>
+                      <Td style={isCancelled ? { color: "rgba(26,26,26,0.5)" } : {}}>{formatDate(r.pickupDate)}</Td>
+                      <Td style={isCancelled ? { color: "rgba(26,26,26,0.5)" } : {}}>{formatDate(r.returnDate)}</Td>
+                      <Td style={isCancelled ? { color: "rgba(26,26,26,0.5)" } : {}}>{formatDA(r.total)}</Td>
+                      <Td>
+                        {isCancelled ? (
+                          <span className="text-xs px-2 py-1 rounded font-medium" style={{ background: "rgba(192, 57, 43, 0.1)", color: "#C0392B" }}>
+                            Annulée
+                          </span>
+                        ) : (
+                          <Badge status="En attente" />
+                        )}
+                      </Td>
                     </tr>
                   );
                 })}
@@ -108,20 +142,30 @@ function ReservationPage() {
             <div className="md:hidden divide-y" style={{ borderColor: "#E5E5E5" }}>
               {visible.map((r) => {
                 const client = clients.find((c) => c.id === r.clientId);
+                const isCancelled = r.status === "Annulée";
                 return (
                   <div
                     key={r.id}
                     onClick={() => setOpenRes(r)}
                     className="p-4 flex items-start justify-between gap-3"
-                    style={{ borderLeft: "3px solid #D4820A" }}
+                    style={{ 
+                      borderLeft: isCancelled ? "3px solid #C0392B" : "3px solid #D4820A",
+                      background: isCancelled ? "rgba(192, 57, 43, 0.03)" : "transparent"
+                    }}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium">{client?.name}</div>
-                      <div className="text-xs mt-0.5" style={{ color: "rgba(26,26,26,0.55)" }}>
+                      <div className="font-medium" style={isCancelled ? { color: "rgba(26,26,26,0.5)" } : {}}>{client?.name}</div>
+                      <div className="text-xs mt-0.5" style={{ color: isCancelled ? "rgba(26,26,26,0.5)" : "rgba(26,26,26,0.55)" }}>
                         Retrait {formatDate(r.pickupDate)} · {formatDA(r.total)}
                       </div>
                     </div>
-                    <Badge status="En attente" />
+                    {isCancelled ? (
+                      <span className="text-xs px-2 py-1 rounded font-medium" style={{ background: "rgba(192, 57, 43, 0.1)", color: "#C0392B" }}>
+                        Annulée
+                      </span>
+                    ) : (
+                      <Badge status="En attente" />
+                    )}
                   </div>
                 );
               })}
@@ -408,6 +452,7 @@ function ReservationDetail({ reservationId, onClose }: { reservationId: string; 
   const clients = useStore((s) => s.clients);
   const articles = useStore((s) => s.articles);
   const deleteReservation = useStore((s) => s.deleteReservation);
+  const cancelReservation = useStore((s) => s.cancelReservation);
   const validateReservation = useStore((s) => s.validateReservation);
   const addReservationVersement = useStore((s) => s.addReservationVersement);
   const deleteReservationVersement = useStore((s) => s.deleteReservationVersement);
@@ -436,6 +481,13 @@ function ReservationDetail({ reservationId, onClose }: { reservationId: string; 
     toast.success("Réservation validée — location créée !");
     onClose();
     navigate({ to: "/locations" });
+  };
+
+  const doCancel = async () => {
+    if (!confirm("Annuler cette réservation ?\n\nLes versements effectués ne seront pas remboursés.")) return;
+    await cancelReservation(reservation.id);
+    toast.success("Réservation annulée.");
+    onClose();
   };
 
   const doAddVersement = async () => {
@@ -478,6 +530,15 @@ function ReservationDetail({ reservationId, onClose }: { reservationId: string; 
             >
               <CheckCircle className="w-4 h-4" /> Valider → Location
             </button>
+            {isAdmin && (
+              <button
+                onClick={doCancel}
+                className="text-sm flex items-center gap-1.5 cursor-pointer"
+                style={{ color: "#E67E22", fontWeight: 500 }}
+              >
+                × Annuler
+              </button>
+            )}
             {isAdmin && (
               <button
                 onClick={() => {

@@ -40,6 +40,8 @@ export interface Versement {
   type: string;
 }
 
+export type ReservationStatus = "En attente" | "Validée" | "Annulée";
+
 export interface Location {
   id: string;
   clientId: string;
@@ -72,6 +74,8 @@ export interface Reservation {
   versements: Versement[];
   notes?: string;
   createdAt: string;
+  status?: ReservationStatus;
+  cancelledAt?: string;
 }
 
 export interface SavedContractArticle {

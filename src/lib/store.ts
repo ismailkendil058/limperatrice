@@ -82,6 +82,7 @@ export interface StoreState {
   // Reservations
   addReservation: (r: Omit<Reservation, "id" | "createdAt">) => Promise<void>;
   deleteReservation: (id: string) => Promise<void>;
+  cancelReservation: (id: string) => Promise<void>;
   validateReservation: (id: string, initialPayment: number) => Promise<void>;
   addReservationVersement: (resId: string, v: Omit<Versement, "id">) => Promise<void>;
   deleteReservationVersement: (resId: string, verseId: string) => Promise<void>;
@@ -387,6 +388,14 @@ export const useStore = create<StoreState>((set, get) => ({
   deleteReservation: async (id) => {
     await api.deleteReservation(id);
     set((s) => ({ reservations: s.reservations.filter((r) => r.id !== id) }));
+  },
+  cancelReservation: async (id) => {
+    await api.cancelReservation(id);
+    set((s) => ({
+      reservations: s.reservations.map((r) =>
+        r.id === id ? { ...r, status: "Annulée" as const, cancelledAt: new Date().toISOString().slice(0, 10) } : r
+      ),
+    }));
   },
   addReservationVersement: async (resId, v) => {
     const verse = await api.addReservationVersement(resId, v);
