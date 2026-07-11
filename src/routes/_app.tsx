@@ -146,13 +146,13 @@ function AppLayout() {
 
       <main className="flex-1 min-w-0">
         {/* Mobile header */}
-        <header className="lg:hidden flex items-center px-6 py-4 border-b bg-white mt-8" style={{ borderColor: "#F0EEEC" }}>
+        <header className="lg:hidden flex items-center px-6 py-4 border-b bg-white mt-[3.75rem]" style={{ borderColor: "#F0EEEC" }}>
           <button onClick={openMobile} aria-label="Menu" className="mr-4 p-1" style={{ color: "#1A1A1A" }}>
-            <Menu className="w-6 h-6" />
+            <Menu className="w-9 h-9" />
           </button>
           <div className="brand-name flex-1 font-light tracking-[0.15em] uppercase text-neutral-800" style={{ fontSize: 20 }}>L'impératrice</div>
           <button onClick={handleLogout} aria-label="Déconnexion" className="p-1" style={{ color: "#BA93DF" }}>
-            <LogOut className="w-6 h-6" />
+            <LogOut className="w-9 h-9" />
           </button>
         </header>
         <div className="p-8 lg:p-12 max-w-[1400px] mx-auto pb-12">
