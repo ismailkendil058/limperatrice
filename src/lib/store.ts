@@ -417,11 +417,11 @@ export const useStore = create<StoreState>((set, get) => ({
     const reservation = get().reservations.find((r) => r.id === id);
     if (!reservation) return;
     
-    // Build versements array from reservation payment history
+    // Build versements array for the location
     const reservationVersements = reservation.versements ?? [];
     const locationVersements: Versement[] = [];
     
-    // Add initial payment as a versement if it exists
+    // Add the initial payment from reservation as the first versement
     if (initialPayment > 0) {
       locationVersements.push({
         id: uid(),
@@ -455,8 +455,8 @@ export const useStore = create<StoreState>((set, get) => ({
       notes: reservation.notes,
     };
     const loc = await api.createLocation(payload);
-    // Delete the reservation from the server (including junction/versement rows)
-    await api.deleteReservationFull(id);
+    // Persist the status change to the database
+    await api.updateReservationStatus(id, "Validée");
     // Mark selected articles as "Loué"
     for (const aid of (reservation.articleIds ?? [])) {
       const article = get().articles.find((a) => a.id === aid);
@@ -465,9 +465,12 @@ export const useStore = create<StoreState>((set, get) => ({
         set((s) => ({ articles: s.articles.map((a) => (a.id === aid ? updated : a)) }));
       }
     }
+    // Update local state
     set((s) => ({
       locations: [...s.locations, loc],
-      reservations: s.reservations.filter((r) => r.id !== id),
+      reservations: s.reservations.map((r) =>
+        r.id === id ? { ...r, status: "Validée" as const } : r
+      ),
     }));
   },
 }));

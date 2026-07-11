@@ -24,6 +24,7 @@ function ReservationPage() {
 
   const [reservationSearch, setReservationSearch] = useState("");
   const [showCancelled, setShowCancelled] = useState(false);
+  const [showValidated, setShowValidated] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [openRes, setOpenRes] = useState<Reservation | null>(null);
 
@@ -56,6 +57,16 @@ function ReservationPage() {
           />
           <span className="text-sm" style={{ color: "rgba(26,26,26,0.7)" }}>Annulées</span>
         </label>
+        <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
+          <input
+            type="checkbox"
+            checked={showValidated}
+            onChange={(e) => setShowValidated(e.target.checked)}
+            className="w-4 h-4 rounded"
+            style={{ accentColor: "#27AE60" }}
+          />
+          <span className="text-sm" style={{ color: "rgba(26,26,26,0.7)" }}>Validées</span>
+        </label>
       </div>
 
       {(() => {
@@ -64,6 +75,9 @@ function ReservationPage() {
         
         if (!showCancelled) {
           visible = visible.filter((r) => r.status !== "Annulée");
+        }
+        if (!showValidated) {
+          visible = visible.filter((r) => r.status !== "Validée");
         }
         
         if (q) {
@@ -128,6 +142,10 @@ function ReservationPage() {
                           <span className="text-xs px-2 py-1 rounded font-medium" style={{ background: "rgba(192, 57, 43, 0.1)", color: "#C0392B" }}>
                             Annulée
                           </span>
+                        ) : r.status === "Validée" ? (
+                          <span className="text-xs px-2 py-1 rounded font-medium" style={{ background: "rgba(39, 174, 96, 0.1)", color: "#27AE60" }}>
+                            Validée
+                          </span>
                         ) : (
                           <Badge status="En attente" />
                         )}
@@ -143,25 +161,30 @@ function ReservationPage() {
               {visible.map((r) => {
                 const client = clients.find((c) => c.id === r.clientId);
                 const isCancelled = r.status === "Annulée";
+                const isValidated = r.status === "Validée";
                 return (
                   <div
                     key={r.id}
                     onClick={() => setOpenRes(r)}
                     className="p-4 flex items-start justify-between gap-3"
                     style={{ 
-                      borderLeft: isCancelled ? "3px solid #C0392B" : "3px solid #D4820A",
-                      background: isCancelled ? "rgba(192, 57, 43, 0.03)" : "transparent"
+                      borderLeft: isCancelled ? "3px solid #C0392B" : isValidated ? "3px solid #27AE60" : "3px solid #D4820A",
+                      background: isCancelled ? "rgba(192, 57, 43, 0.03)" : isValidated ? "rgba(39, 174, 96, 0.03)" : "transparent"
                     }}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium" style={isCancelled ? { color: "rgba(26,26,26,0.5)" } : {}}>{client?.name}</div>
-                      <div className="text-xs mt-0.5" style={{ color: isCancelled ? "rgba(26,26,26,0.5)" : "rgba(26,26,26,0.55)" }}>
+                      <div className="font-medium" style={isCancelled || isValidated ? { color: "rgba(26,26,26,0.5)" } : {}}>{client?.name}</div>
+                      <div className="text-xs mt-0.5" style={{ color: isCancelled || isValidated ? "rgba(26,26,26,0.5)" : "rgba(26,26,26,0.55)" }}>
                         Retrait {formatDate(r.pickupDate)} · {formatDA(r.total)}
                       </div>
                     </div>
                     {isCancelled ? (
                       <span className="text-xs px-2 py-1 rounded font-medium" style={{ background: "rgba(192, 57, 43, 0.1)", color: "#C0392B" }}>
                         Annulée
+                      </span>
+                    ) : isValidated ? (
+                      <span className="text-xs px-2 py-1 rounded font-medium" style={{ background: "rgba(39, 174, 96, 0.1)", color: "#27AE60" }}>
+                        Validée
                       </span>
                     ) : (
                       <Badge status="En attente" />

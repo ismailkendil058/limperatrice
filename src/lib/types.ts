@@ -58,6 +58,7 @@ export interface Location {
   cautionReturned?: boolean;
   notes?: string;
   occasion: string;
+  initialPayment?: number;
 }
 
 export interface Reservation {

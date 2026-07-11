@@ -25,6 +25,7 @@ const firstDayOfThisMonthStr = () => {
 
 function CaissePage() {
   const locations = useStore((s) => s.locations);
+  const reservations = useStore((s) => s.reservations);
   const clients = useStore((s) => s.clients);
   const articles = useStore((s) => s.articles);
 
@@ -60,13 +61,26 @@ function CaissePage() {
   }, [filterMode, selectedDay, selectedMonth, startDate, endDate]);
 
   const allVersements = useMemo(() => {
-    return locations.flatMap((l) => (l.versements ?? []).map((v) => ({ ...v, location: l })))
+    // Only show versements from reservations
+    const fromReservations = reservations.flatMap((r) => {
+      const items = [...(r.versements ?? [])];
+      // Include the initial versement if it exists
+      if (r.versement && r.versement > 0) {
+        items.unshift({
+          id: `${r.id}-initial`,
+          date: r.createdAt || r.pickupDate,
+          amount: r.versement,
+          type: "Versement initial",
+        });
+      }
+      return items.map((v) => ({ ...v, reservationId: r.id, source: "reservation" as const }));
+    });
+    return fromReservations
       .filter((v) => { const d = new Date(v.date); return d >= start && d <= end; })
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [locations, start, end]);
+  }, [reservations, start, end]);
 
   const periodTotal = allVersements.reduce((s, v) => s + v.amount, 0);
-  const restesPercevoir = locations.reduce((s, l) => s + locReste(l), 0);
 
   const periodLabel = useMemo(() => {
     if (filterMode === "day") return `le ${selectedDay}`;
@@ -130,9 +144,8 @@ function CaissePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Stat label={`Encaissé ${periodLabel}`} value={formatDA(periodTotal)} />
-        <Stat label="Restes à percevoir" value={formatDA(restesPercevoir)} />
         <Stat label="Nombre de versements" value={String(allVersements.length)} />
       </div>
 
@@ -152,11 +165,13 @@ function CaissePage() {
             </thead>
             <tbody>
               {allVersements.map((v) => {
-                const client = clients.find((c) => c.id === v.location.clientId);
-                const machta = parseMachta(v.location.notes);
-                const arts = articles.filter((a) => (v.location.articleIds ?? []).includes(a.id)).map((a) => a.name).join(", ") || (machta.active ? "Service Machta" : "Aucun");
+                const res = reservations.find((r) => r.id === v.reservationId);
+                if (!res) return null;
+                const client = clients.find((c) => c.id === res.clientId);
+                const machta = parseMachta(res.notes);
+                const arts = articles.filter((a) => (res.articleIds ?? []).includes(a.id)).map((a) => a.name).join(", ") || (machta.active ? "Service Machta" : "Aucun");
                 return (
-                  <tr key={v.id} style={{ borderBottom: "1px solid #E5E5E5" }}>
+                  <tr key={`res-${v.id}`} style={{ borderBottom: "1px solid #E5E5E5" }}>
                     <Td>{formatDate(v.date)}</Td>
                     <Td>{client?.name}</Td>
                     <Td>{arts}</Td>

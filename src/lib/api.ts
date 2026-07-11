@@ -309,8 +309,9 @@ export async function createLocation(
     if (jErr) handleError(jErr);
   }
 
-  // Handle initial payment as a versement if provided
-  if (initialPayment && initialPayment > 0) {
+  // Handle initial payment as a versement ONLY if no versements array was provided
+  // If versements array is provided, it already includes the initial payment
+  if (initialPayment && initialPayment > 0 && (!_vers || _vers.length === 0)) {
     await supabase.from("versements").insert({
       id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2, 10),
       location_id: (inserted as any).id,
@@ -320,7 +321,7 @@ export async function createLocation(
     });
   }
 
-  // Handle additional versements if provided
+  // Handle versements if provided
   if (_vers && _vers.length > 0) {
     const versementRows = _vers.map((v) => ({
       id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2, 10),
@@ -332,10 +333,17 @@ export async function createLocation(
     await supabase.from("versements").insert(versementRows);
   }
 
-  // Build the return object with articleIds
+  // Fetch the created versements to return them
+  const { data: createdVersements } = await supabase
+    .from("versements")
+    .select("*")
+    .eq("location_id", (inserted as any).id);
+
+  // Build the return object with articleIds and versements
   const saved = fromDB(inserted) as any;
   saved.articleIds = articleIds ?? [];
   if (articlePrices) saved.articlePrices = articlePrices;
+  saved.versements = (createdVersements ?? []).map((v: any) => fromDB(v));
   return saved;
 }
 
@@ -638,6 +646,15 @@ export async function loadAllData() {
   return { articles, clients, employees, locations, reservations, savedContracts };
 }
 
+/** Update reservation status (used after validation) */
+export async function updateReservationStatus(id: string, status: string): Promise<void> {
+  const { error } = await supabase
+    .from("reservations")
+    .update({ status })
+    .eq("id", id);
+  if (error) handleError(error);
+}
+
 /** Delete reservation and all related data (used after validation) */
 export async function deleteReservationFull(id: string): Promise<void> {
   await supabase.from("reservation_articles").delete().eq("reservation_id", id);
@@ -706,6 +723,7 @@ export default {
   createReservation,
   deleteReservation,
   cancelReservation,
+  updateReservationStatus,
   deleteReservationFull,
   getSavedContracts,
   saveContract,

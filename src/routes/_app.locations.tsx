@@ -117,7 +117,7 @@ function LocationsPage() {
           <table className="hidden md:table w-full text-sm">
             <thead>
               <tr style={{ borderBottom: "2px solid #E5E5E5", background: "#FAFAFA" }}>
-                <Th>Client</Th><Th>Article(s)</Th><Th>Retrait</Th><Th>Retour prévu</Th><Th>Total</Th><Th>Reste</Th><Th>Statut</Th>
+                <Th>Client</Th><Th>Article(s)</Th><Th>Retrait</Th><Th>Retour prévu</Th><Th>Total</Th><Th>Statut</Th>
               </tr>
             </thead>
             <tbody>
@@ -125,7 +125,6 @@ function LocationsPage() {
                 const client = clients.find((c) => c.id === l.clientId);
                 const machta = parseMachta(l.notes);
                 const arts = articles.filter((a) => (l.articleIds ?? []).includes(a.id)).map((a) => a.name).join(", ") || (machta.active ? "Service Machta" : "Aucun");
-                const reste = locReste(l);
                 const isOverdue = l.returnDate < todayStr();
                 const displayStatus = (isOverdue && l.status !== "Rendue") ? "En retard" : l.status;
                 const overdue = displayStatus === "En retard";
@@ -144,7 +143,6 @@ function LocationsPage() {
                     <Td>{formatDate(l.pickupDate)}</Td>
                     <Td>{formatDate(l.returnDate)}</Td>
                     <Td>{formatDA(l.total)}</Td>
-                    <Td style={{ color: reste > 0 ? "#BA93DF" : "rgba(26,26,26,0.45)", fontWeight: reste > 0 ? 500 : 400 }}>{formatDA(reste)}</Td>
                     <Td><Badge status={displayStatus} /></Td>
                   </tr>
                 );
@@ -155,7 +153,6 @@ function LocationsPage() {
           <div className="md:hidden divide-y" style={{ borderColor: "#E5E5E5" }}>
             {filtered.map((l) => {
               const client = clients.find((c) => c.id === l.clientId);
-              const reste = locReste(l);
               const isOverdue = l.returnDate < todayStr();
               const displayStatus = (isOverdue && l.status !== "Rendue") ? "En retard" : l.status;
               return (
@@ -166,7 +163,6 @@ function LocationsPage() {
                     <div className="text-xs mt-0.5" style={{ color: "rgba(26,26,26,0.55)" }}>
                       Retour {formatDate(l.returnDate)} · {formatDA(l.total)}
                     </div>
-                    {reste > 0 && <div className="text-sm mt-1" style={{ color: "#BA93DF", fontWeight: 500 }}>Reste : {formatDA(reste)}</div>}
                   </div>
                   <Badge status={displayStatus} />
                 </div>
@@ -600,30 +596,17 @@ function EditLocationModal({ location, onClose }: { location: Location; onClose:
 function LocationDetail({ location, onClose }: { location: Location; onClose: () => void }) {
   const clients = useStore((s) => s.clients);
   const articles = useStore((s) => s.articles);
-  const addVersement = useStore((s) => s.addVersement);
-  const deleteVersement = useStore((s) => s.deleteVersement);
   const markReturned = useStore((s) => s.markReturned);
   const saveContract = useStore((s) => s.saveContract);
   const deleteLocation = useStore((s) => s.deleteLocation);
   const updateLocation = useStore((s) => s.updateLocation);
   const isAdmin = useStore((s) => s.auth.role === "admin");
 
-  const [payOpen, setPayOpen] = useState(false);
-  const [payAmount, setPayAmount] = useState(0);
-  const [payDate, setPayDate] = useState(todayStr());
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
   const client = clients.find((c) => c.id === location.clientId);
   const arts = articles.filter((a) => (location.articleIds ?? []).includes(a.id));
-  const reste = locReste(location);
-
-  const submitPay = () => {
-    if (payAmount <= 0 || payAmount > reste) return;
-    addVersement(location.id, { date: payDate, amount: payAmount, type: payAmount === reste ? "Solde" : "Versement" });
-    setPayOpen(false);
-    setPayAmount(0);
-  };
 
   const handleDelete = async () => {
     await deleteLocation(location.id);
@@ -694,37 +677,6 @@ function LocationDetail({ location, onClose }: { location: Location; onClose: ()
           </div>
         </Section>
 
-        <div className="card-surface" style={{ padding: 20 }}>
-          <div className="section-label mb-3">Paiements</div>
-          <div className="flex items-center justify-between text-sm mb-3">
-            <span>Total</span>
-            <span style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 20 }}>{formatDA(location.total)}</span>
-          </div>
-          <div className="space-y-1 mb-3">
-            {(location.versements ?? []).length === 0 && <div className="text-xs" style={{ color: "rgba(26,26,26,0.55)" }}>Aucun versement</div>}
-            {(location.versements ?? []).map((v) => (
-              <div key={v.id} className="flex items-center justify-between text-sm py-1.5">
-                <span style={{ color: "rgba(26,26,26,0.7)" }}>{formatDate(v.date)} · {v.type}</span>
-                <span className="flex items-center gap-2">
-                  {formatDA(v.amount)}
-                  {isAdmin && (
-                    <button onClick={() => deleteVersement(location.id, v.id)} aria-label="Supprimer" style={{ color: "rgba(26,26,26,0.4)" }}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-between text-sm pt-3 border-t" style={{ borderColor: "#E5E5E5" }}>
-            <span>Reste à payer</span>
-            <span style={{ color: "#BA93DF", fontWeight: 600 }}>{formatDA(reste)}</span>
-          </div>
-          <button onClick={() => setPayOpen(true)} className="btn-primary w-full justify-center mt-4" disabled={reste === 0}>
-            <Plus className="w-4 h-4" /> Enregistrer un versement
-          </button>
-        </div>
-
         {location.status !== "Rendue" && (
           <button
             onClick={() => { const d = prompt("Date de retour ?", todayStr()); if (d) markReturned(location.id, d); }}
@@ -735,22 +687,6 @@ function LocationDetail({ location, onClose }: { location: Location; onClose: ()
         )}
       </div>
 
-      <Modal
-        open={payOpen} onClose={() => setPayOpen(false)} title="Nouveau versement" size="sm"
-        footer={<>
-          <button onClick={() => setPayOpen(false)} className="btn-danger">Annuler</button>
-          <button onClick={submitPay} className="btn-primary">Enregistrer</button>
-        </>}
-      >
-        <div className="space-y-4">
-          <FieldLabel label={`Montant (max ${formatDA(reste)})`}>
-            <input type="number" className="input-field" value={payAmount || ""} onChange={(e) => setPayAmount(+e.target.value)} max={reste} />
-          </FieldLabel>
-          <FieldLabel label="Date">
-            <input type="date" className="input-field" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
-          </FieldLabel>
-        </div>
-      </Modal>
 
       {/* Confirm delete modal */}
       <Modal

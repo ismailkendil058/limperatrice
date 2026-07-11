@@ -1,6 +1,6 @@
-const CACHE_NAME = "boutique-reves-v2";
-const STATIC_CACHE = "boutique-reves-static-v2";
-const DYNAMIC_CACHE = "boutique-reves-dynamic-v2";
+const CACHE_NAME = "boutique-reves-v3";
+const STATIC_CACHE = "boutique-reves-static-v3";
+const DYNAMIC_CACHE = "boutique-reves-dynamic-v3";
 
 const STATIC_ASSETS = [
   "/",
@@ -101,7 +101,24 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // For API requests and other dynamic content - network first
+  // For API requests (Supabase) - network first, DO NOT cache
+  if (url.hostname.includes("supabase")) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          // Don't cache Supabase responses
+          return response;
+        })
+        .catch(() => {
+          return new Response(JSON.stringify({ error: "offline" }), {
+            headers: { "Content-Type": "application/json" },
+          });
+        })
+    );
+    return;
+  }
+
+  // For other dynamic content - network first with cache fallback
   event.respondWith(
     fetch(request)
       .then((response) => {
