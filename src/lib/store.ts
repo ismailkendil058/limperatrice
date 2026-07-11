@@ -2,7 +2,7 @@
 import { create } from "zustand";
 import api from "./api";
 import { supabase } from "./supabaseClient";
-import { parseMachta } from "./format";
+import { parseMachta, today as todayStr } from "./format";
 
 /** Types imported from the API layer */
 import type { Article, Client, Employee, Location, Note, Reservation, SavedContract, Versement, Category, ArticleStatus } from "./types";
@@ -407,6 +407,31 @@ export const useStore = create<StoreState>((set, get) => ({
   validateReservation: async (id, initialPayment) => {
     const reservation = get().reservations.find((r) => r.id === id);
     if (!reservation) return;
+    
+    // Build versements array from reservation payment history
+    const reservationVersements = reservation.versements ?? [];
+    const locationVersements: Versement[] = [];
+    
+    // Add initial payment as a versement if it exists
+    if (initialPayment > 0) {
+      locationVersements.push({
+        id: uid(),
+        date: reservation.createdAt || todayStr(),
+        amount: initialPayment,
+        type: "Versement",
+      });
+    }
+    
+    // Add any additional versements from the reservation
+    reservationVersements.forEach((v) => {
+      locationVersements.push({
+        id: uid(),
+        date: v.date,
+        amount: v.amount,
+        type: v.type,
+      });
+    });
+    
     const payload = {
       clientId: reservation.clientId,
       articleIds: reservation.articleIds,
@@ -417,7 +442,7 @@ export const useStore = create<StoreState>((set, get) => ({
       total: reservation.total,
       caution: reservation.caution ?? 0,
       initialPayment,
-      versements: [],
+      versements: locationVersements,
       notes: reservation.notes,
     };
     const loc = await api.createLocation(payload);

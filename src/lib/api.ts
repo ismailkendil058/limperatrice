@@ -220,18 +220,34 @@ export async function getLocations(): Promise<Location[]> {
 
   const locationIds = locations.map((l) => l.id);
 
-  // Batch fetch all junction rows for all locations in ONE query
-  const { data: allJunctionRows, error: jErr } = await supabase
-    .from("location_articles")
-    .select("location_id, article_id, custom_price")
-    .in("location_id", locationIds);
-  if (jErr) handleError(jErr);
+  // Batch fetch all junction rows and versements in ONE query each
+  const [junctionResult, versementsResult] = await Promise.all([
+    supabase
+      .from("location_articles")
+      .select("location_id, article_id, custom_price")
+      .in("location_id", locationIds),
+    supabase
+      .from("versements")
+      .select("*")
+      .in("location_id", locationIds)
+      .order("date", { ascending: false }),
+  ]);
 
-  // Group by location_id
+  if (junctionResult.error) handleError(junctionResult.error);
+  if (versementsResult.error) handleError(versementsResult.error);
+
+  // Group junction rows by location_id
   const junctionByLoc: Record<string, { article_id: string; custom_price: number | null }[]> = {};
-  for (const row of allJunctionRows ?? []) {
+  for (const row of junctionResult.data ?? []) {
     if (!junctionByLoc[row.location_id]) junctionByLoc[row.location_id] = [];
     junctionByLoc[row.location_id].push(row);
+  }
+
+  // Group versements by location_id
+  const versementsByLoc: Record<string, any[]> = {};
+  for (const row of versementsResult.data ?? []) {
+    if (!versementsByLoc[row.location_id]) versementsByLoc[row.location_id] = [];
+    versementsByLoc[row.location_id].push(row);
   }
 
   for (const loc of locations) {
@@ -247,6 +263,9 @@ export async function getLocations(): Promise<Location[]> {
     if (Object.keys(articlePricesMap).length > 0) {
       (loc as any).articlePrices = articlePricesMap;
     }
+
+    const versRows = versementsByLoc[loc.id] ?? [];
+    (loc as any).versements = versRows.map((v: any) => fromDB(v));
   }
 
   return locations;
@@ -299,6 +318,18 @@ export async function createLocation(
       amount: loc.initialPayment,
       type: "Versement",
     });
+  }
+
+  // Handle additional versements if provided
+  if (_vers && _vers.length > 0) {
+    const versementRows = _vers.map((v) => ({
+      id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2, 10),
+      location_id: (inserted as any).id,
+      date: v.date,
+      amount: v.amount,
+      type: v.type,
+    }));
+    await supabase.from("versements").insert(versementRows);
   }
 
   // Build the return object with articleIds

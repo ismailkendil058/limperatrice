@@ -432,7 +432,7 @@ function ReservationDetail({ reservationId, onClose }: { reservationId: string; 
       toast.error(`Le total des versements (${formatDA(totalVerse)}) doit être égal au total (${formatDA(reservation.total)}) pour valider.`);
       return;
     }
-    await validateReservation(reservation.id, reservation.total);
+    await validateReservation(reservation.id, totalVerse);
     toast.success("Réservation validée — location créée !");
     onClose();
     navigate({ to: "/locations" });
