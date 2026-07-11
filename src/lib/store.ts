@@ -71,6 +71,7 @@ export interface StoreState {
   addEmployee: (name: string, pin: string) => Promise<void>;
   updateEmployeePin: (id: string, pin: string) => Promise<void>;
   toggleEmployee: (id: string) => Promise<void>;
+  deleteEmployee: (id: string) => Promise<void>;
   // Saved contracts
   saveContract: (locId: string) => Promise<void>;
   deleteSavedContract: (id: string) => Promise<void>;
@@ -322,6 +323,10 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!emp) return;
     const updated = await api.updateEmployee(id, { active: !emp.active });
     set((s) => ({ employees: s.employees.map((e) => (e.id === id ? updated : e)) }));
+  },
+  deleteEmployee: async (id) => {
+    await api.deleteEmployee(id);
+    set((s) => ({ employees: s.employees.filter((e) => e.id !== id) }));
   },
 
   // ---------- Saved contracts ----------

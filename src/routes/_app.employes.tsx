@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { Modal } from "@/components/ui-kit";
 import { Th, Td, FieldLabel } from "./_components/table";
-import { Plus } from "lucide-react";
+import { Plus, KeyRound, Power, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/employes")({
   component: EmployeesPage,
@@ -17,6 +17,8 @@ function EmployeesPage() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [editingPinFor, setEditingPinFor] = useState<string | null>(null);
+
+  const deleteEmployee = useStore((s) => s.deleteEmployee);
 
   return (
     <div className="space-y-6">
@@ -49,9 +51,16 @@ function EmployeesPage() {
                   </span>
                 </Td>
                 <Td style={{ textAlign: "right" }}>
-                  <div className="flex gap-4 justify-end text-sm">
-                    <button onClick={() => setEditingPinFor(e.id)} className="cursor-pointer font-medium hover:underline" style={{ color: "#BA93DF" }}>Modifier le PIN</button>
-                    <button onClick={() => toggleEmployee(e.id)} className="cursor-pointer hover:underline" style={{ color: "rgba(26,26,26,0.6)" }}>{e.active ? "Désactiver" : "Activer"}</button>
+                  <div className="flex gap-3 justify-end">
+                    <button onClick={() => setEditingPinFor(e.id)} title="Modifier le PIN" className="p-2 rounded hover:bg-black/5" style={{ color: "#BA93DF" }}>
+                      <KeyRound className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => toggleEmployee(e.id)} title={e.active ? "Désactiver" : "Activer"} className="p-2 rounded hover:bg-black/5" style={{ color: e.active ? "#BA93DF" : "rgba(26,26,26,0.6)" }}>
+                      <Power className="w-4 h-4" />
+                    </button>
+                    <button onClick={async () => { if (window.confirm("Supprimer cet employé ?")) { await deleteEmployee(e.id); } }} title="Supprimer" className="p-2 rounded hover:bg-black/5" style={{ color: "#dc2626" }}>
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </Td>
               </tr>
