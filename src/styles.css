@@ -102,6 +102,10 @@
   }
 }
 
+img {
+  touch-action: none;
+}
+
 /* Reusable utility classes */
 @utility brand-name {
   font-family: var(--font-display);

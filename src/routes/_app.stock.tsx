@@ -5,6 +5,7 @@ import { useStore, type Article, type Category, type ArticleStatus, type Reserva
 import { formatDA, formatDate } from "@/lib/format";
 import { Drawer, Badge, EmptyState, Modal } from "@/components/ui-kit";
 import { Plus, MoreVertical, Package, Search, X } from "lucide-react";
+import { ZoomableImage } from "@/components/ZoomableImage";
 
 function formatDateShort(d: string) {
   if (!d) return "";
@@ -105,18 +106,27 @@ function StockPage() {
                 setInfoOpen(true);
               }}>
               <div
-                className="rounded-lg mb-3 flex items-center justify-center text-white"
+                className="rounded-lg mb-3 overflow-hidden flex items-center justify-center text-white"
                 style={{
                   aspectRatio: "4/3",
                   background: a.photo?.startsWith("http")
-                    ? `url(${a.photo}) center/cover no-repeat`
+                    ? "transparent"
                     : (a.photo ?? "#BA93DF"),
                   fontFamily: "Cormorant Garamond, serif",
                   fontStyle: "italic",
                   fontSize: 32,
                 }}
               >
-                {!a.photo?.startsWith("http") && a.name[0]}
+                {a.photo?.startsWith("http") ? (
+                  <ZoomableImage
+                    src={a.photo}
+                    alt={a.name}
+                    className="w-full h-full"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <span>{a.name[0]}</span>
+                )}
               </div>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
