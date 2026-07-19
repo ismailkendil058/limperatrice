@@ -4,7 +4,7 @@ import { useStore, type Reservation } from "@/lib/store";
 import { formatDA, formatDate, today as todayStr, parseMachta, serializeMachta } from "@/lib/format";
 import { Modal, Drawer, Badge, EmptyState } from "@/components/ui-kit";
 import { Th, Td, FieldLabel } from "./_components/table";
-import { Plus, Trash2, BookMarked, CheckCircle, Search, CreditCard, Printer } from "lucide-react";
+import { Plus, Trash2, BookMarked, CheckCircle, Search, CreditCard, Printer, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/reservation")({
@@ -231,7 +231,7 @@ function NewReservationModal({ open, onClose }: { open: boolean; onClose: () => 
     if (!clientForm.name.trim()) { setErr("Nom du client requis"); return; }
     if (selArticles.length === 0 && !machtaActive) { setErr("Sélectionnez au moins un article ou le service Machta"); return; }
     if (returnDate < pickupDate) { setErr("Date de retour avant la date de retrait"); return; }
-    if (!versement || Number(versement) <= 0) { setErr("Le versement doit être supérieur à 0 DA"); return; }
+    if (versement === "" || versement === null || versement === undefined) { setErr("Le versement est requis"); return; }
 
     try {
       const client = await addClient({
@@ -406,7 +406,7 @@ function NewReservationModal({ open, onClose }: { open: boolean; onClose: () => 
           </div>
         </Section>
 
-        {/* Versement (mandatory > 0) */}
+        {/* Versement (requis, 0 DA autorisé) */}
         <Section title="4. Versement">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <FieldLabel label="Versement">
@@ -414,9 +414,9 @@ function NewReservationModal({ open, onClose }: { open: boolean; onClose: () => 
                 <input
                   type="number"
                   className="input-field flex-1"
-                  placeholder="Versement minimum : 1 DA"
+                  placeholder="Versement (0 DA autorisé)"
                   value={versement}
-                  min={1}
+                  min={0}
                   onChange={(e) => {
                     const val = e.target.value === "" ? "" : Number(e.target.value);
                     setVersement(val);
@@ -546,20 +546,24 @@ function ReservationDetail({ reservationId, onClose }: { reservationId: string; 
             >
               <Printer className="w-4 h-4" />
             </button>
-            <button
-              onClick={doValidate}
-              className="text-sm flex items-center gap-1.5 cursor-pointer"
-              style={{ color: "#27AE60", fontWeight: 500 }}
-            >
-              <CheckCircle className="w-4 h-4" /> Valider → Location
-            </button>
-            {isAdmin && (
+            {isAdmin && reservation.status !== "Validée" && (
+              <button
+                onClick={doValidate}
+                className="cursor-pointer p-1.5 rounded-md hover:bg-[rgba(39,174,96,0.08)] transition-colors"
+                style={{ color: "#27AE60" }}
+                title="Valider → Location"
+              >
+                <CheckCircle className="w-4 h-4" />
+              </button>
+            )}
+            {isAdmin && reservation.status !== "Annulée" && (
               <button
                 onClick={doCancel}
-                className="text-sm flex items-center gap-1.5 cursor-pointer"
-                style={{ color: "#E67E22", fontWeight: 500 }}
+                className="cursor-pointer p-1.5 rounded-md hover:bg-[rgba(230,126,34,0.08)] transition-colors"
+                style={{ color: "#E67E22" }}
+                title="Annuler"
               >
-                × Annuler
+                <X className="w-4 h-4" />
               </button>
             )}
             {isAdmin && (
@@ -571,10 +575,11 @@ function ReservationDetail({ reservationId, onClose }: { reservationId: string; 
                     onClose();
                   }
                 }}
-                className="text-sm flex items-center gap-1.5 cursor-pointer"
+                className="cursor-pointer p-1.5 rounded-md hover:bg-[rgba(192,57,43,0.08)] transition-colors"
                 style={{ color: "#C0392B" }}
+                title="Supprimer"
               >
-                <Trash2 className="w-4 h-4" /> Supprimer
+                <Trash2 className="w-4 h-4" />
               </button>
             )}
           </div>
